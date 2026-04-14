@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skin Cancer Clinic — Patient LTV Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  :root {
+    --navy: #1a2744;
+    --navy-light: #2a3f6b;
+    --teal: #0d9488;
+    --teal-light: #14b8a6;
+    --bg: #f0f2f5;
+    --card: #ffffff;
+    --text: #1e293b;
+    --text-light: #64748b;
+    --border: #e2e8f0;
+    --red: #dc2626;
+    --red-bg: #fef2f2;
+    --green: #059669;
+    --green-bg: #ecfdf5;
+    --amber: #d97706;
+    --amber-bg: #fffbeb;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  .header {
+    background: linear-gradient(135deg, var(--navy), var(--navy-light));
+    color: white;
+    padding: 28px 32px 20px;
+  }
+  .header h1 { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+  .header .subtitle { font-size: 14px; opacity: 0.8; }
+
+  .controls-bar {
+    background: white;
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .controls-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+  }
+  .controls-toggle h3 { font-size: 14px; color: var(--navy); font-weight: 600; }
+  .controls-toggle .arrow { transition: transform 0.2s; font-size: 12px; color: var(--text-light); }
+  .controls-toggle .arrow.open { transform: rotate(180deg); }
+
+  .controls-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px 24px;
+    margin-top: 12px;
+    overflow: hidden;
+    transition: max-height 0.3s ease, opacity 0.3s ease;
+  }
+  .controls-grid.collapsed { max-height: 0; opacity: 0; margin-top: 0; }
+
+  .slider-group label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+  .slider-group label .val {
+    color: var(--navy);
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .slider-group input[type="range"] {
+    width: 100%;
+    height: 6px;
+    -webkit-appearance: none;
+    background: var(--border);
+    border-radius: 3px;
+    outline: none;
+  }
+  .slider-group input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--teal);
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+  .slider-group .range-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-light);
+    margin-top: 2px;
+  }
+
+  .retention-toggle {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 4px;
+  }
+  .retention-toggle button {
+    padding: 4px 12px;
+    font-size: 12px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: white;
+    color: var(--text-light);
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+  .retention-toggle button.active {
+    background: var(--teal);
+    color: white;
+    border-color: var(--teal);
+  }
+
+  .main { padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+
+  .section { margin-bottom: 32px; }
+  .section-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--teal);
+    display: inline-block;
+  }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .card {
+    background: var(--card);
+    border-radius: 10px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    border: 1px solid var(--border);
+  }
+  .card .card-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-light); font-weight: 600; }
+  .card .card-value { font-size: 24px; font-weight: 700; color: var(--navy); margin-top: 4px; }
+  .card .card-sub { font-size: 12px; color: var(--text-light); margin-top: 2px; }
+
+  .card-wide {
+    background: var(--card);
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    border: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+
+  .risk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .risk-card {
+    background: var(--card);
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    border: 2px solid var(--border);
+  }
+  .risk-card.high { border-color: var(--red); }
+  .risk-card.standard { border-color: var(--teal); }
+  .risk-card h4 { font-size: 16px; margin-bottom: 12px; }
+  .risk-card.high h4 { color: var(--red); }
+  .risk-card.standard h4 { color: var(--teal); }
+  .risk-stat { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .risk-stat:last-child { border: none; }
+  .risk-stat .stat-val { font-weight: 700; color: var(--navy); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th {
+    background: var(--navy);
+    color: white;
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+  }
+  th:hover { background: var(--navy-light); }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  tr:hover td { background: #f8fafc; }
+  .text-right { text-align: right; }
+  .highlight-row td { background: var(--green-bg); font-weight: 600; }
+
+  .warning-banner {
+    background: var(--red-bg);
+    border: 1px solid var(--red);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    color: var(--red);
+    font-weight: 500;
+  }
+  .warning-banner.hidden { display: none; }
+
+  .ok-banner {
+    background: var(--green-bg);
+    border: 1px solid var(--green);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    color: var(--green);
+    font-weight: 500;
+  }
+
+  .milestone-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+  .milestone {
+    padding: 14px;
+    border-radius: 8px;
+    text-align: center;
+    font-weight: 600;
+  }
+  .milestone .ms-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8; }
+  .milestone .ms-value { font-size: 22px; margin-top: 4px; }
+  .milestone.breakeven { background: var(--amber-bg); color: var(--amber); }
+  .milestone.roi-target { background: #eff6ff; color: #2563eb; }
+  .milestone.roi-10x { background: var(--green-bg); color: var(--green); }
+
+  .summary-box {
+    background: linear-gradient(135deg, var(--navy), var(--navy-light));
+    color: white;
+    border-radius: 12px;
+    padding: 28px;
+  }
+  .summary-box h3 { font-size: 18px; margin-bottom: 16px; }
+  .summary-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
+  .summary-stat .ss-label { font-size: 12px; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.5px; }
+  .summary-stat .ss-value { font-size: 28px; font-weight: 700; }
+  .summary-recommendation {
+    background: rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .chart-container { position: relative; height: 300px; margin: 16px 0; }
+
+  .caveat {
+    font-size: 12px;
+    color: var(--text-light);
+    font-style: italic;
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: #f8fafc;
+    border-radius: 6px;
+    border-left: 3px solid var(--amber);
+  }
+
+  .organic-input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 14px;
+    flex-wrap: wrap;
+  }
+  .organic-input input {
+    width: 70px;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    color: var(--navy);
+  }
+
+  @media print {
+    .controls-bar { position: static; box-shadow: none; }
+    .controls-grid { max-height: none !important; opacity: 1 !important; }
+    .slider-group input[type="range"] { display: none; }
+    .slider-group .range-labels { display: none; }
+    .retention-toggle button { display: none; }
+    .retention-toggle button.active { display: inline-block; }
+    body { font-size: 11px; }
+    .header { padding: 16px; }
+    .main { padding: 16px; }
+  }
+
+  @media (max-width: 768px) {
+    .header { padding: 20px 16px; }
+    .controls-bar { padding: 12px 16px; }
+    .main { padding: 16px; }
+    .risk-grid { grid-template-columns: 1fr; }
+    .milestone-cards { grid-template-columns: 1fr; }
+    .controls-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Skin Cancer Clinic &mdash; Patient Lifetime Value Dashboard</h1>
+  <div class="subtitle" id="header-subtitle"></div>
+</div>
+
+<div class="controls-bar">
+  <div class="controls-toggle" onclick="toggleControls()">
+    <h3>Model Parameters</h3>
+    <span class="arrow open" id="controls-arrow">&#9660;</span>
+  </div>
+  <div class="controls-grid" id="controls-grid">
+    <div class="slider-group">
+      <label>Net Profit Margin <span class="val" id="margin-val">16%</span></label>
+      <input type="range" id="margin" min="10" max="20" value="16" step="1" oninput="onSlider()">
+      <div class="range-labels"><span>10%</span><span>20%</span></div>
+    </div>
+    <div class="slider-group">
+      <label>ROI Target <span class="val" id="roi-val">3.0x</span></label>
+      <input type="range" id="roi" min="3" max="10" value="3" step="0.5" oninput="onSlider()">
+      <div class="range-labels"><span>3x</span><span>10x</span></div>
+    </div>
+    <div class="slider-group">
+      <label>Cost Per Lead <span class="val" id="cpl-val">$40</span></label>
+      <input type="range" id="cpl" min="20" max="100" value="40" step="5" oninput="onSlider()">
+      <div class="range-labels"><span>$20</span><span>$100</span></div>
+    </div>
+    <div class="slider-group">
+      <label>Lead &rarr; Booked <span class="val" id="l2b-val">40%</span></label>
+      <input type="range" id="l2b" min="20" max="60" value="40" step="5" oninput="onSlider()">
+      <div class="range-labels"><span>20%</span><span>60%</span></div>
+    </div>
+    <div class="slider-group">
+      <label>Booked &rarr; Attended <span class="val" id="b2a-val">85%</span></label>
+      <input type="range" id="b2a" min="60" max="95" value="85" step="5" oninput="onSlider()">
+      <div class="range-labels"><span>60%</span><span>95%</span></div>
+    </div>
+    <div class="slider-group">
+      <label>Monthly Ad Spend <span class="val" id="spend-val">$3,500</span></label>
+      <input type="range" id="spend" min="2000" max="10000" value="3500" step="500" oninput="onSlider()">
+      <div class="range-labels"><span>$2,000</span><span>$10,000</span></div>
+    </div>
+    <div class="slider-group">
+      <label>Retention Curve Model</label>
+      <div class="retention-toggle">
+        <button class="active" data-model="powerlaw" onclick="setRetention(this)">Power Law</button>
+        <button data-model="geometric" onclick="setRetention(this)">Geometric</button>
+        <button data-model="existing" onclick="setRetention(this)">Existing Model</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- SECTION 1: Data Validation -->
+  <div class="section">
+    <div class="section-title">Data Validation Summary</div>
+    <div class="cards" id="validation-cards"></div>
+    <div class="card-wide" style="margin-top: 16px;">
+      <h4 style="font-size: 14px; color: var(--navy); margin-bottom: 8px;">Top MBS Items by Frequency</h4>
+      <table id="mbs-table"><thead><tr><th>MBS Item</th><th>Count</th><th class="text-right">Total Fees</th><th>Description</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <!-- SECTION 2: LTV by Segment -->
+  <div class="section">
+    <div class="section-title">10-Year LTV by Segment</div>
+    <div class="card-wide">
+      <table id="segment-table">
+        <thead><tr>
+          <th onclick="sortSegTable(0)">Sex</th>
+          <th onclick="sortSegTable(1)">Age Band</th>
+          <th onclick="sortSegTable(2)" class="text-right">N</th>
+          <th onclick="sortSegTable(3)" class="text-right">Y1 Revenue</th>
+          <th onclick="sortSegTable(4)" class="text-right">10-yr Revenue</th>
+          <th onclick="sortSegTable(5)" class="text-right">10-yr Net Profit LTV</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="caveat">FY2024 cohort Y1 revenue used as base. Note: cohort includes patients new to Dr Reiham (joined Oct 2023), which may inflate Y1 revenue vs. truly campaign-acquired patients.</div>
+    </div>
+    <div class="chart-container"><canvas id="segment-chart"></canvas></div>
+  </div>
+
+  <!-- SECTION 3: Retention Curve -->
+  <div class="section">
+    <div class="section-title">Retention Curve Analysis</div>
+    <div class="card-wide">
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px;" id="retention-stats"></div>
+      <div class="chart-container"><canvas id="retention-chart"></canvas></div>
+      <div class="caveat">Observed data points (Y1-Y3) from FY2024 cohort. Y3 is annualised (10 months observed, scaled 12/10). Curves extrapolate Y4-Y10.</div>
+    </div>
+  </div>
+
+  <!-- SECTION 4: Risk Tiers -->
+  <div class="section">
+    <div class="section-title">Patient Risk Tiers</div>
+    <div class="risk-grid" id="risk-grid"></div>
+    <div class="caveat" style="margin-top: 12px;">High-risk = any patient with MBS items 31363-31381 (suspected melanoma or malignant skin lesion excision). These patients represent recurring revenue from ongoing monitoring and treatment.</div>
+  </div>
+
+  <!-- SECTION 5: Break-even & Target CAC -->
+  <div class="section">
+    <div class="section-title">Break-even &amp; Target CAC</div>
+    <div class="card-wide">
+      <div id="cac-headline" style="font-size: 16px; margin-bottom: 16px; color: var(--navy);"></div>
+      <table id="cac-table">
+        <thead><tr>
+          <th>Audience</th>
+          <th class="text-right">N (cohort)</th>
+          <th class="text-right">Y1 Revenue</th>
+          <th class="text-right">10-yr LTV</th>
+          <th class="text-right">Break-even CAC</th>
+          <th class="text-right">Target CAC</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SECTION 6: Campaign P&L -->
+  <div class="section">
+    <div class="section-title">12-Month Campaign P&amp;L</div>
+    <div id="capacity-banner"></div>
+    <div class="organic-input">
+      <span>Organic new patients/month:</span>
+      <input type="number" id="organic-rate" value="40" min="0" max="60" onchange="onSlider()">
+      <span style="font-size: 12px; color: var(--text-light);">of 60 capacity cap | Headroom: <strong id="headroom-val"></strong> patients/month for campaign</span>
+    </div>
+    <div class="milestone-cards" id="milestones"></div>
+    <div class="card-wide">
+      <table id="pl-table">
+        <thead><tr>
+          <th>Month</th>
+          <th class="text-right">Leads</th>
+          <th class="text-right">New Patients</th>
+          <th class="text-right">Cum. Spend</th>
+          <th class="text-right">Cum. Y1 Revenue</th>
+          <th class="text-right">Cum. Net Profit</th>
+          <th class="text-right">ROI</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="chart-container"><canvas id="pl-chart"></canvas></div>
+  </div>
+
+  <!-- SECTION 7: Summary -->
+  <div class="section">
+    <div class="section-title">Summary &amp; Recommendation</div>
+    <div class="summary-box" id="summary-box"></div>
+  </div>
+
+  <div style="text-align: center; padding: 24px; font-size: 12px; color: var(--text-light);">
+    Data: De-identified billing records, Jul 2023 - Apr 2026, Canberra ACT | Model: 10-year patient LTV with retention decay | Generated by Claude Code
+  </div>
+</div>
+
+<script>
+// === EMBEDDED DATA ===
+const DATA = {"metadata":{"n_patients":5872,"n_line_items":17034,"total_fees":2775648.5,"total_paid":2768435.95,"date_min":"03/07/2023","date_max":"08/04/2026","n_visits":13126,"n_invoices":13839,"procedure_conversion_pct":27.2,"mean_3yr_revenue_per_patient":472.69,"fy24_cohort_size":2717,"join_match_rate_pct":100.0},"segments_all_patients":[{"sex":"Male","age_band":"<30","n":373,"mean_3yr_revenue":182.74},{"sex":"Male","age_band":"30-39","n":286,"mean_3yr_revenue":345.46},{"sex":"Male","age_band":"40-49","n":428,"mean_3yr_revenue":402.04},{"sex":"Male","age_band":"50-59","n":410,"mean_3yr_revenue":530.82},{"sex":"Male","age_band":"60-69","n":314,"mean_3yr_revenue":717.08},{"sex":"Male","age_band":"70-79","n":330,"mean_3yr_revenue":1024.25},{"sex":"Male","age_band":"80+","n":153,"mean_3yr_revenue":1230.11},{"sex":"Female","age_band":"<30","n":557,"mean_3yr_revenue":195.53},{"sex":"Female","age_band":"30-39","n":554,"mean_3yr_revenue":328.23},{"sex":"Female","age_band":"40-49","n":765,"mean_3yr_revenue":387.78},{"sex":"Female","age_band":"50-59","n":638,"mean_3yr_revenue":426.51},{"sex":"Female","age_band":"60-69","n":443,"mean_3yr_revenue":550.18},{"sex":"Female","age_band":"70-79","n":432,"mean_3yr_revenue":615.36},{"sex":"Female","age_band":"80+","n":165,"mean_3yr_revenue":565.85}],"segments_fy24_cohort":[{"sex":"Male","age_band":"<30","n":216,"mean_y1":119.63,"mean_y2":23.97,"mean_y3_ann":7.82},{"sex":"Male","age_band":"30-39","n":140,"mean_y1":190.21,"mean_y2":72.58,"mean_y3_ann":45.17},{"sex":"Male","age_band":"40-49","n":219,"mean_y1":225.2,"mean_y2":109.14,"mean_y3_ann":71.49},{"sex":"Male","age_band":"50-59","n":204,"mean_y1":314.64,"mean_y2":167.1,"mean_y3_ann":139.09},{"sex":"Male","age_band":"60-69","n":157,"mean_y1":407.52,"mean_y2":264.29,"mean_y3_ann":179.04},{"sex":"Male","age_band":"70-79","n":172,"mean_y1":551.8,"mean_y2":425.77,"mean_y3_ann":406.93},{"sex":"Male","age_band":"80+","n":86,"mean_y1":451.67,"mean_y2":531.59,"mean_y3_ann":422.45},{"sex":"Female","age_band":"<30","n":281,"mean_y1":133.33,"mean_y2":24.18,"mean_y3_ann":14.7},{"sex":"Female","age_band":"30-39","n":224,"mean_y1":199.07,"mean_y2":68.87,"mean_y3_ann":50.84},{"sex":"Female","age_band":"40-49","n":298,"mean_y1":237.49,"mean_y2":152.81,"mean_y3_ann":87.09},{"sex":"Female","age_band":"50-59","n":250,"mean_y1":270.93,"mean_y2":140.94,"mean_y3_ann":146.13},{"sex":"Female","age_band":"60-69","n":181,"mean_y1":300.6,"mean_y2":250.25,"mean_y3_ann":162.68},{"sex":"Female","age_band":"70-79","n":197,"mean_y1":318.65,"mean_y2":257.45,"mean_y3_ann":201.66},{"sex":"Female","age_band":"80+","n":82,"mean_y1":304.89,"mean_y2":161.23,"mean_y3_ann":187.87}],"cohort_summary":{"mean_y1":268.26,"mean_y2":164.26,"mean_y3_ann":128.47,"y2_y1_ratio":0.6123,"y3_y1_ratio":0.4789},"retention":{"observed":[1.0,0.6123,0.4789],"geometric":{"r":0.6636,"curve":[1.0,0.6636,0.4403,0.2922,0.1939,0.1286,0.0854,0.0566,0.0376,0.0249]},"powerlaw":{"b":0.6854,"curve":[1.0,0.6218,0.471,0.3867,0.3319,0.2929,0.2635,0.2405,0.2218,0.2064]},"existing":[1.0,0.6,0.53,0.47,0.42,0.37,0.33,0.3,0.27,0.24]},"risk_tiers":{"high_risk":{"n":807,"mean_total_revenue":1489.89,"mean_annual_revenue":526.46,"mean_visits_total":5.1,"mean_visits_per_year":1.8,"cohort_n":388,"mean_y1":727.77,"y2_retention":0.865,"y3_retention":0.686},"standard":{"n":5065,"mean_total_revenue":310.62,"mean_annual_revenue":109.76,"mean_visits_total":1.9,"mean_visits_per_year":0.7,"cohort_n":2329,"mean_y1":191.7,"y2_retention":0.452,"y3_retention":0.348}},"organic_rate":{"current_avg":140.7,"monthly_series":[{"month":"2023-07","new_patients":280,"era":"Era 1: Pre-Reiham (Jul-Sep 2023)"},{"month":"2023-08","new_patients":242,"era":"Era 1: Pre-Reiham (Jul-Sep 2023)"},{"month":"2023-09","new_patients":225,"era":"Era 1: Pre-Reiham (Jul-Sep 2023)"},{"month":"2023-10","new_patients":204,"era":"Era 2: Reiham ramp-up (Oct 2023-Oct 2024)"},{"month":"2023-11","new_patients":292,"era":"Era 2: Reiham ramp-up (Oct 2023-Oct 2024)"},{"month":"2023-12","new_patients":195,"era":"Era 2: Reiham ramp-up (Oct 2023-Oct 2024)"},{"month":"2024-01","new_patients":201,"era":"Era 2: Reiham ramp-up (Oct 2023-Oct 2024)"},{"month":"2024-02","new_patients":204,"era":"Era 2: Reiham ramp-up (Oct 2023-Oct 2024)"},{"month":"2024-03","new_patients":191,"era":"Era 2: Reiham ramp-up (Oct 2023-Oct 2024)"},{"month":"2024-04","new_patients":265,"era":"Era 2: Reiham ramp-up (Oct 2023-Oct 2024)"},{"month":"2024-05","new_patients":273,"era":"Era 2: Reiham ramp-up (Oct 2023-Oct 2024)"},{"month":"2024-06","new_patients":145,"era":"Era 2: Reiham ramp-up (Oct 2023-Oct 2024)"},{"month":"2024-07","new_patients":206,"era":"Era 2: Reiham ramp-up (Oct 2023-Oct 2024)"},{"month":"2024-08","new_patients":169,"era":"Era 2: Reiham ramp-up (Oct 2023-Oct 2024)"},{"month":"2024-09","new_patients":110,"era":"Era 2: Reiham ramp-up (Oct 2023-Oct 2024)"},{"month":"2024-10","new_patients":137,"era":"Era 2: Reiham ramp-up (Oct 2023-Oct 2024)"},{"month":"2024-11","new_patients":187,"era":"Era 3: Current steady-state (Nov 2024+)"},{"month":"2024-12","new_patients":122,"era":"Era 3: Current steady-state (Nov 2024+)"},{"month":"2025-01","new_patients":202,"era":"Era 3: Current steady-state (Nov 2024+)"},{"month":"2025-02","new_patients":169,"era":"Era 3: Current steady-state (Nov 2024+)"},{"month":"2025-03","new_patients":174,"era":"Era 3: Current steady-state (Nov 2024+)"},{"month":"2025-04","new_patients":98,"era":"Era 3: Current steady-state (Nov 2024+)"},{"month":"2025-05","new_patients":135,"era":"Era 3: Current steady-state (Nov 2024+)"},{"month":"2025-06","new_patients":102,"era":"Era 3: Current steady-state (Nov 2024+)"},{"month":"2025-07","new_patients":128,"era":"Era 3: Current steady-state (Nov 2024+)"},{"month":"2025-08","new_patients":104,"era":"Era 3: Current steady-state (Nov 2024+)"},{"month":"2025-09","new_patients":91,"era":"Era 3: Current steady-state (Nov 2024+)"},{"month":"2025-10","new_patients":198,"era":"Era 3: Current steady-state (Nov 2024+)"},{"month":"2025-11","new_patients":121,"era":"Era 3: Current steady-state (Nov 2024+)"},{"month":"2025-12","new_patients":197,"era":"Era 3: Current steady-state (Nov 2024+)"},{"month":"2026-01","new_patients":128,"era":"Era 3: Current steady-state (Nov 2024+)"},{"month":"2026-02","new_patients":196,"era":"Era 3: Current steady-state (Nov 2024+)"},{"month":"2026-03","new_patients":155,"era":"Era 3: Current steady-state (Nov 2024+)"},{"month":"2026-04","new_patients":26,"era":"Era 3: Current steady-state (Nov 2024+)"}]},"audiences":{"blended":{"label":"Broad (all patients)","n":2717,"mean_y1":268.26},"over50":{"label":"Over-50s","n":1332,"mean_y1":355.16},"over65_male":{"label":"Over-65 males","n":336,"mean_y1":500.94},"male_60_79":{"label":"Male 60-79","n":329,"mean_y1":482.95}},"top_mbs":[{"item":23,"count":8963,"total_fees":1206922.2,"description":"Surgery Consultation, Level B"},{"item":36,"count":1893,"total_fees":400126.85,"description":"Surgery Consultation, Level C"},{"item":30071,"count":1239,"total_fees":141749.75,"description":"Biopsy Of Skin Where The Biopsy Specimen Is Sent For Pathological Examination"},{"item":75870,"count":740,"total_fees":15184.5,"description":"Direct-Billing Incentive"},{"item":91891,"count":553,"total_fees":32613.9,"description":"Phone Attendance By A General Practitioner Lasting At Least 6 Minutes If The Att"},{"item":31381,"count":485,"total_fees":155161.65,"description":"Clinically Suspected Melanoma, Surgical Excision (Other Than By Shave Excision) "},{"item":30192,"count":435,"total_fees":20403.85,"description":"Ablation Of Premalignant Skin Lesions >= 10"},{"item":31361,"count":375,"total_fees":171155.05,"description":"Malignant Skin Lesion (Other Than A Malignant Skin Lesion Covered By Item 31371,"},{"item":10990,"count":369,"total_fees":2580.1,"description":"Direct-Billing Incentive"},{"item":93644,"count":308,"total_fees":9677.6,"description":"Covid-19 Vaccine Suitability Assessment By A Gp, 2nd Dose"}]};
+
+// === STATE ===
+const state = {
+  margin: 0.16, roi: 3, cpl: 40, l2b: 0.40, b2a: 0.85, spend: 3500,
+  retentionModel: 'powerlaw', organicRate: 40, capacityCap: 60
+};
+
+let segmentChart, retentionChart, plChart;
+let segSortCol = 5, segSortAsc = false;
+
+// === HELPERS ===
+function fmt(v) { return '$' + Math.round(v).toLocaleString('en-AU'); }
+function pct(v) { return Math.round(v * 100) + '%'; }
+function escHtml(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+function getRetentionCurve() {
+  if (state.retentionModel === 'geometric') return DATA.retention.geometric.curve;
+  if (state.retentionModel === 'powerlaw') return DATA.retention.powerlaw.curve;
+  return DATA.retention.existing;
+}
+
+function calc10YrRevenue(y1) {
+  var curve = getRetentionCurve(), total = 0;
+  for (var i = 0; i < 10; i++) total += y1 * curve[i];
+  return total;
+}
+
+function calc10YrLTV(y1) { return calc10YrRevenue(y1) * state.margin; }
+
+// === SLIDER HANDLERS ===
+function onSlider() {
+  state.margin = parseInt(document.getElementById('margin').value) / 100;
+  state.roi = parseFloat(document.getElementById('roi').value);
+  state.cpl = parseInt(document.getElementById('cpl').value);
+  state.l2b = parseInt(document.getElementById('l2b').value) / 100;
+  state.b2a = parseInt(document.getElementById('b2a').value) / 100;
+  state.spend = parseInt(document.getElementById('spend').value);
+  state.organicRate = parseInt(document.getElementById('organic-rate').value) || 0;
+
+  document.getElementById('margin-val').textContent = Math.round(state.margin * 100) + '%';
+  document.getElementById('roi-val').textContent = state.roi.toFixed(1) + 'x';
+  document.getElementById('cpl-val').textContent = fmt(state.cpl);
+  document.getElementById('l2b-val').textContent = Math.round(state.l2b * 100) + '%';
+  document.getElementById('b2a-val').textContent = Math.round(state.b2a * 100) + '%';
+  document.getElementById('spend-val').textContent = fmt(state.spend);
+
+  recalculate();
+}
+
+function setRetention(btn) {
+  var btns = document.querySelectorAll('.retention-toggle button');
+  for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
+  btn.classList.add('active');
+  state.retentionModel = btn.getAttribute('data-model');
+  recalculate();
+}
+
+function toggleControls() {
+  document.getElementById('controls-grid').classList.toggle('collapsed');
+  document.getElementById('controls-arrow').classList.toggle('open');
+}
+
+// === RENDER: VALIDATION (static, once) ===
+function renderValidation() {
+  var m = DATA.metadata;
+  document.getElementById('header-subtitle').textContent =
+    m.n_patients.toLocaleString() + ' patients | ' + m.n_line_items.toLocaleString() +
+    ' billing items | ' + m.date_min + ' - ' + m.date_max + ' | Canberra ACT';
+
+  var cards = [
+    { label: 'Total Patients', value: m.n_patients.toLocaleString(), sub: 'Unique patient IDs' },
+    { label: 'Total Fees Billed', value: fmt(m.total_fees), sub: 'Headline revenue' },
+    { label: 'Total Collected', value: fmt(m.total_paid), sub: pct(m.total_paid / m.total_fees) + ' collection rate' },
+    { label: 'Billing Items', value: m.n_line_items.toLocaleString(), sub: m.n_invoices.toLocaleString() + ' invoices' },
+    { label: 'FY2024 Cohort', value: m.fy24_cohort_size.toLocaleString(), sub: 'New patients (first visit)' },
+    { label: 'Procedure Rate', value: m.procedure_conversion_pct + '%', sub: 'Patients with biopsy/excision' },
+    { label: 'Mean 3yr Revenue', value: fmt(m.mean_3yr_revenue_per_patient), sub: 'Per patient (all patients)' },
+    { label: 'Join Match Rate', value: m.join_match_rate_pct + '%', sub: 'Billing to demographics' },
+  ];
+  var el = document.getElementById('validation-cards');
+  el.textContent = '';
+  cards.forEach(function(c) {
+    var card = document.createElement('div');
+    card.className = 'card';
+    var lbl = document.createElement('div'); lbl.className = 'card-label'; lbl.textContent = c.label;
+    var val = document.createElement('div'); val.className = 'card-value'; val.textContent = c.value;
+    var sub = document.createElement('div'); sub.className = 'card-sub'; sub.textContent = c.sub;
+    card.appendChild(lbl); card.appendChild(val); card.appendChild(sub);
+    el.appendChild(card);
+  });
+
+  var tbody = document.querySelector('#mbs-table tbody');
+  tbody.textContent = '';
+  DATA.top_mbs.forEach(function(r) {
+    var tr = document.createElement('tr');
+    var td1 = document.createElement('td'); td1.textContent = r.item;
+    var td2 = document.createElement('td'); td2.textContent = r.count.toLocaleString();
+    var td3 = document.createElement('td'); td3.className = 'text-right'; td3.textContent = fmt(r.total_fees);
+    var td4 = document.createElement('td'); td4.textContent = r.description;
+    tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3); tr.appendChild(td4);
+    tbody.appendChild(tr);
+  });
+}
+
+// === RENDER: SEGMENT TABLE ===
+function renderSegmentTable() {
+  var segments = DATA.segments_fy24_cohort.filter(function(s) { return s.n > 0; }).map(function(s) {
+    return { sex: s.sex, age_band: s.age_band, n: s.n, mean_y1: s.mean_y1,
+      rev10: calc10YrRevenue(s.mean_y1), ltv10: calc10YrLTV(s.mean_y1) };
+  });
+
+  var keys = ['sex', 'age_band', 'n', 'mean_y1', 'rev10', 'ltv10'];
+  var col = segSortCol, asc = segSortAsc;
+  segments.sort(function(a, b) {
+    var va = a[keys[col]], vb = b[keys[col]];
+    var cmp = typeof va === 'string' ? va.localeCompare(vb) : va - vb;
+    return asc ? cmp : -cmp;
+  });
+
+  var maxLTV = 0;
+  segments.forEach(function(s) { if (s.ltv10 > maxLTV) maxLTV = s.ltv10; });
+
+  var tbody = document.querySelector('#segment-table tbody');
+  tbody.textContent = '';
+  segments.forEach(function(s) {
+    var tr = document.createElement('tr');
+    if (s.ltv10 === maxLTV) tr.className = 'highlight-row';
+    var fields = [s.sex, s.age_band, s.n, fmt(s.mean_y1), fmt(s.rev10), fmt(s.ltv10)];
+    fields.forEach(function(f, i) {
+      var td = document.createElement('td');
+      td.textContent = f;
+      if (i >= 2) td.className = 'text-right';
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+
+  // Chart
+  var chartData = segments.slice().sort(function(a, b) { return b.ltv10 - a.ltv10; }).slice(0, 10);
+  var labels = chartData.map(function(s) { return s.sex + ' ' + s.age_band; });
+  var values = chartData.map(function(s) { return s.ltv10; });
+
+  if (segmentChart) segmentChart.destroy();
+  segmentChart = new Chart(document.getElementById('segment-chart'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: '10-yr Net Profit LTV',
+        data: values,
+        backgroundColor: values.map(function(_, i) { return i < 3 ? '#0d9488' : '#94a3b8'; }),
+        borderRadius: 4
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(ctx) { return fmt(ctx.raw); } } } },
+      scales: { x: { ticks: { callback: function(v) { return '$' + v; } } }, y: { grid: { display: false } } }
+    }
+  });
+}
+
+function sortSegTable(col) {
+  if (segSortCol === col) segSortAsc = !segSortAsc;
+  else { segSortCol = col; segSortAsc = col < 2; }
+  renderSegmentTable();
+}
+
+// === RENDER: RETENTION CHART ===
+function renderRetentionChart() {
+  var years = [];
+  for (var i = 1; i <= 10; i++) years.push('Y' + i);
+  var obs = DATA.retention.observed;
+
+  var statsData = [
+    { label: 'Geometric (r)', value: DATA.retention.geometric.r.toFixed(4), sub: 'Y10: ' + pct(DATA.retention.geometric.curve[9]) },
+    { label: 'Power Law (b)', value: DATA.retention.powerlaw.b.toFixed(4), sub: 'Y10: ' + pct(DATA.retention.powerlaw.curve[9]) },
+    { label: 'Existing Model', value: 'Hand-tuned', sub: 'Y10: ' + pct(DATA.retention.existing[9]) }
+  ];
+  var statsEl = document.getElementById('retention-stats');
+  statsEl.textContent = '';
+  statsData.forEach(function(s) {
+    var div = document.createElement('div');
+    div.style.textAlign = 'center';
+    var lbl = document.createElement('div'); lbl.style.cssText = 'font-size:12px;color:var(--text-light);text-transform:uppercase;'; lbl.textContent = s.label;
+    var val = document.createElement('div'); val.style.cssText = 'font-size:20px;font-weight:700;color:var(--navy);'; val.textContent = s.value;
+    var sub = document.createElement('div'); sub.style.cssText = 'font-size:12px;color:var(--text-light);'; sub.textContent = s.sub;
+    div.appendChild(lbl); div.appendChild(val); div.appendChild(sub);
+    statsEl.appendChild(div);
+  });
+
+  var obsData = obs.map(function(v) { return v * 100; });
+  while (obsData.length < 10) obsData.push(null);
+  var obsRadius = [8, 8, 8, 0, 0, 0, 0, 0, 0, 0];
+
+  if (retentionChart) retentionChart.destroy();
+  retentionChart = new Chart(document.getElementById('retention-chart'), {
+    type: 'line',
+    data: {
+      labels: years,
+      datasets: [
+        { label: 'Power Law', data: DATA.retention.powerlaw.curve.map(function(v) { return v * 100; }),
+          borderColor: '#0d9488', backgroundColor: 'rgba(13,148,136,0.1)',
+          fill: state.retentionModel === 'powerlaw', borderWidth: state.retentionModel === 'powerlaw' ? 3 : 1.5,
+          pointRadius: 0, tension: 0.3 },
+        { label: 'Geometric', data: DATA.retention.geometric.curve.map(function(v) { return v * 100; }),
+          borderColor: '#dc2626', borderWidth: state.retentionModel === 'geometric' ? 3 : 1.5,
+          fill: false, pointRadius: 0, tension: 0.3,
+          borderDash: state.retentionModel === 'geometric' ? [] : [5, 5] },
+        { label: 'Existing Model', data: DATA.retention.existing.map(function(v) { return v * 100; }),
+          borderColor: '#2563eb', borderWidth: state.retentionModel === 'existing' ? 3 : 1.5,
+          fill: false, pointRadius: 0, tension: 0.3,
+          borderDash: state.retentionModel === 'existing' ? [] : [5, 5] },
+        { label: 'Observed', data: obsData, borderColor: '#1e293b', backgroundColor: '#1e293b',
+          pointRadius: obsRadius, pointStyle: 'circle', showLine: false }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { tooltip: { callbacks: { label: function(ctx) { return ctx.dataset.label + ': ' + (ctx.raw != null ? ctx.raw.toFixed(1) : '-') + '%'; } } } },
+      scales: { y: { min: 0, max: 105, ticks: { callback: function(v) { return v + '%'; } }, title: { display: true, text: 'Revenue retention (% of Y1)' } } }
+    }
+  });
+}
+
+// === RENDER: RISK TIERS ===
+function renderRiskTiers() {
+  var el = document.getElementById('risk-grid');
+  el.textContent = '';
+  var tiers = [
+    { key: 'high_risk', cls: 'high', title: 'High Risk (Melanoma/Malignant)' },
+    { key: 'standard', cls: 'standard', title: 'Standard Risk' }
+  ];
+  tiers.forEach(function(tier) {
+    var t = DATA.risk_tiers[tier.key];
+    var ltv = calc10YrLTV(t.mean_annual_revenue);
+    var stats = [
+      ['Patients', t.n.toLocaleString()],
+      ['Mean Annual Revenue', fmt(t.mean_annual_revenue)],
+      ['Mean Visits/Year', t.mean_visits_per_year.toFixed(1)],
+      ['Mean Total Revenue (3yr)', fmt(t.mean_total_revenue)],
+      ['Est. 10-yr Net Profit LTV', fmt(ltv)]
+    ];
+    if (t.y2_retention) {
+      stats.push(['Y2 Retention', pct(t.y2_retention)]);
+      stats.push(['Y3 Retention', pct(t.y3_retention)]);
+    }
+    var card = document.createElement('div');
+    card.className = 'risk-card ' + tier.cls;
+    var h4 = document.createElement('h4'); h4.textContent = tier.title;
+    card.appendChild(h4);
+    stats.forEach(function(pair) {
+      var row = document.createElement('div'); row.className = 'risk-stat';
+      var lbl = document.createElement('span'); lbl.textContent = pair[0];
+      var val = document.createElement('span'); val.className = 'stat-val'; val.textContent = pair[1];
+      row.appendChild(lbl); row.appendChild(val);
+      card.appendChild(row);
+    });
+    el.appendChild(card);
+  });
+}
+
+// === RENDER: BREAK-EVEN & CAC ===
+function renderBreakeven() {
+  var rows = [];
+  var keys = Object.keys(DATA.audiences);
+  keys.forEach(function(key) {
+    var aud = DATA.audiences[key];
+    var ltv = calc10YrLTV(aud.mean_y1);
+    rows.push({ label: aud.label, n: aud.n, mean_y1: aud.mean_y1, ltv: ltv, breakeven: ltv, target: ltv / state.roi, key: key });
+  });
+
+  var headline = document.getElementById('cac-headline');
+  var o65 = rows.find(function(r) { return r.key === 'over65_male'; });
+  headline.textContent = '';
+  var txt = 'At ' + Math.round(state.margin * 100) + '% margin and ' + state.roi.toFixed(1) + 'x ROI target, you can afford up to ' +
+    fmt(rows[0].target) + ' per new patient (broad), or ' + fmt(o65 ? o65.target : 0) + ' for over-65 males.';
+  headline.textContent = txt;
+
+  var tbody = document.querySelector('#cac-table tbody');
+  tbody.textContent = '';
+  rows.forEach(function(r) {
+    var tr = document.createElement('tr');
+    var fields = [r.label, r.n.toLocaleString(), fmt(r.mean_y1), fmt(r.ltv), fmt(r.breakeven), fmt(r.target)];
+    fields.forEach(function(f, i) {
+      var td = document.createElement('td');
+      if (i === 5) { var strong = document.createElement('strong'); strong.textContent = f; td.appendChild(strong); }
+      else td.textContent = f;
+      if (i >= 1) td.className = 'text-right';
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+// === RENDER: CAMPAIGN P&L ===
+function renderCampaignPL() {
+  var leadsPerMonth = state.spend / state.cpl;
+  var patientsPerMonth = leadsPerMonth * state.l2b * state.b2a;
+  var headroom = state.capacityCap - state.organicRate;
+  var cappedPatients = Math.min(patientsPerMonth, Math.max(0, headroom));
+  var isCapped = patientsPerMonth > headroom;
+
+  var hrEl = document.getElementById('headroom-val');
+  hrEl.textContent = headroom > 0 ? headroom + ' patients/month' : 'NONE - at capacity';
+  hrEl.style.color = headroom > 0 ? 'var(--green)' : 'var(--red)';
+
+  var bannerDiv = document.getElementById('capacity-banner');
+  bannerDiv.textContent = '';
+  var banner = document.createElement('div');
+  if (isCapped && headroom > 0) {
+    banner.className = 'warning-banner';
+    banner.textContent = 'Campaign would generate ' + patientsPerMonth.toFixed(1) +
+      ' patients/month but only ' + headroom + ' slots available. Capped to ' + cappedPatients.toFixed(0) + ' patients/month.';
+  } else if (headroom <= 0) {
+    banner.className = 'warning-banner';
+    banner.textContent = 'No capacity headroom. Organic patients (' + state.organicRate +
+      '/month) already fill the ' + state.capacityCap + '/month cap. Campaign cannot add patients.';
+  } else {
+    banner.className = 'ok-banner';
+    banner.textContent = 'Capacity OK: ' + cappedPatients.toFixed(1) + ' campaign patients/month + ' +
+      state.organicRate + ' organic = ' + (cappedPatients + state.organicRate).toFixed(0) + ' of ' + state.capacityCap + ' cap.';
+  }
+  bannerDiv.appendChild(banner);
+
+  var y1Rev = DATA.audiences.over65_male.mean_y1;
+  var ltv10 = calc10YrLTV(y1Rev);
+
+  var months = [];
+  var cumSpend = 0, cumRev = 0, cumProfit = 0, cumPatients = 0;
+  var breakevenMonth = null, roiTargetMonth = null, roi10xMonth = null;
+
+  for (var m = 1; m <= 12; m++) {
+    cumSpend += state.spend;
+    cumPatients += cappedPatients;
+    var monthsRemaining = 12 - m + 1;
+    cumRev += cappedPatients * y1Rev * (monthsRemaining / 12);
+    cumProfit = cumRev * state.margin;
+    var roi = cumSpend > 0 ? cumProfit / cumSpend : 0;
+    months.push({ m: m, leads: leadsPerMonth, newPats: cappedPatients, cumSpend: cumSpend, cumRev: cumRev, cumProfit: cumProfit, roi: roi });
+    if (!breakevenMonth && cumProfit >= cumSpend) breakevenMonth = m;
+    var cumLTV = cumPatients * ltv10;
+    if (!roiTargetMonth && cumLTV >= cumSpend * state.roi) roiTargetMonth = m;
+    if (!roi10xMonth && cumLTV >= cumSpend * 10) roi10xMonth = m;
+  }
+
+  var cumLTV12 = cumPatients * ltv10;
+  var ltvROI = cumSpend > 0 ? cumLTV12 / cumSpend : 0;
+
+  // Milestones
+  var msEl = document.getElementById('milestones');
+  msEl.textContent = '';
+  var msData = [
+    { cls: 'breakeven', label: 'Break-even (Y1 only)', value: breakevenMonth ? 'Month ' + breakevenMonth : 'Not in 12mo' },
+    { cls: 'roi-target', label: state.roi.toFixed(1) + 'x ROI (10-yr LTV)', value: roiTargetMonth ? 'Month ' + roiTargetMonth : 'Not in 12mo' },
+    { cls: 'roi-10x', label: '10x ROI (10-yr LTV)', value: roi10xMonth ? 'Month ' + roi10xMonth : 'Not in 12mo' }
+  ];
+  msData.forEach(function(ms) {
+    var div = document.createElement('div'); div.className = 'milestone ' + ms.cls;
+    var lbl = document.createElement('div'); lbl.className = 'ms-label'; lbl.textContent = ms.label;
+    var val = document.createElement('div'); val.className = 'ms-value'; val.textContent = ms.value;
+    div.appendChild(lbl); div.appendChild(val);
+    msEl.appendChild(div);
+  });
+
+  // Table
+  var tbody = document.querySelector('#pl-table tbody');
+  tbody.textContent = '';
+  months.forEach(function(r) {
+    var tr = document.createElement('tr');
+    var fields = [r.m, r.leads.toFixed(0), r.newPats.toFixed(1), fmt(r.cumSpend), fmt(r.cumRev), fmt(r.cumProfit), r.roi.toFixed(2) + 'x'];
+    fields.forEach(function(f, i) {
+      var td = document.createElement('td'); td.textContent = f;
+      if (i >= 1) td.className = 'text-right';
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  // Total row
+  var trTotal = document.createElement('tr');
+  trTotal.style.cssText = 'font-weight:700;background:#f0f2f5;';
+  ['12-mo Total', '', cumPatients.toFixed(0), fmt(cumSpend), fmt(cumRev), fmt(cumProfit), (cumProfit/cumSpend).toFixed(2) + 'x'].forEach(function(f, i) {
+    var td = document.createElement('td'); td.textContent = f;
+    if (i >= 1) td.className = 'text-right';
+    trTotal.appendChild(td);
+  });
+  tbody.appendChild(trTotal);
+  // LTV row
+  var trLTV = document.createElement('tr');
+  trLTV.style.cssText = 'font-weight:700;background:var(--green-bg);';
+  var tdLabel = document.createElement('td'); tdLabel.textContent = 'Projected 10-yr LTV Value'; tdLabel.colSpan = 3;
+  var tdSpend = document.createElement('td'); tdSpend.textContent = fmt(cumSpend); tdSpend.className = 'text-right';
+  var tdLTV = document.createElement('td'); tdLTV.textContent = fmt(cumLTV12); tdLTV.className = 'text-right'; tdLTV.colSpan = 2;
+  var tdROI = document.createElement('td'); tdROI.textContent = ltvROI.toFixed(1) + 'x'; tdROI.className = 'text-right';
+  trLTV.appendChild(tdLabel); trLTV.appendChild(tdSpend); trLTV.appendChild(tdLTV); trLTV.appendChild(tdROI);
+  tbody.appendChild(trLTV);
+
+  // Chart
+  if (plChart) plChart.destroy();
+  var ltvLine = [];
+  for (var i = 0; i < months.length; i++) {
+    var cp = 0;
+    for (var j = 0; j <= i; j++) cp += months[j].newPats;
+    ltvLine.push(cp * ltv10);
+  }
+  plChart = new Chart(document.getElementById('pl-chart'), {
+    type: 'line',
+    data: {
+      labels: months.map(function(r) { return 'M' + r.m; }),
+      datasets: [
+        { label: 'Cumulative Spend', data: months.map(function(r) { return r.cumSpend; }),
+          borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,0.1)', fill: true, tension: 0 },
+        { label: 'Cumulative Net Profit (Y1)', data: months.map(function(r) { return r.cumProfit; }),
+          borderColor: '#0d9488', backgroundColor: 'rgba(13,148,136,0.1)', fill: true, tension: 0 },
+        { label: 'Projected 10-yr LTV Value', data: ltvLine,
+          borderColor: '#2563eb', borderDash: [5, 5], fill: false, tension: 0 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { tooltip: { callbacks: { label: function(ctx) { return ctx.dataset.label + ': ' + fmt(ctx.raw); } } } },
+      scales: { y: { ticks: { callback: function(v) { return '$' + (v/1000).toFixed(0) + 'k'; } } } }
+    }
+  });
+}
+
+// === RENDER: SUMMARY ===
+function renderSummary() {
+  var y1 = DATA.audiences.over65_male.mean_y1;
+  var ltv = calc10YrLTV(y1);
+  var targetCAC = ltv / state.roi;
+  var leadsPerMonth = state.spend / state.cpl;
+  var patientsPerMonth = Math.min(leadsPerMonth * state.l2b * state.b2a, Math.max(0, state.capacityCap - state.organicRate));
+  var annualPatients = patientsPerMonth * 12;
+  var annualSpend = state.spend * 12;
+  var annualLTV = annualPatients * ltv;
+  var projectedROI = annualSpend > 0 ? annualLTV / annualSpend : 0;
+  var effectiveCAC = patientsPerMonth > 0 ? state.spend / patientsPerMonth : Infinity;
+  var viable = patientsPerMonth > 0 && effectiveCAC <= targetCAC * 1.1;
+
+  var box = document.getElementById('summary-box');
+  box.textContent = '';
+
+  var h3 = document.createElement('h3'); h3.textContent = 'Campaign Viability Summary';
+  box.appendChild(h3);
+
+  var statsGrid = document.createElement('div'); statsGrid.className = 'summary-stats';
+  var statItems = [
+    { label: '10-yr LTV (Over-65 Males)', value: fmt(ltv) },
+    { label: 'Target CAC (' + state.roi.toFixed(1) + 'x ROI)', value: fmt(targetCAC) },
+    { label: 'Effective CAC', value: patientsPerMonth > 0 ? fmt(effectiveCAC) : 'N/A' },
+    { label: 'Projected 12-mo ROI (10-yr LTV)', value: projectedROI.toFixed(1) + 'x' }
+  ];
+  statItems.forEach(function(s) {
+    var div = document.createElement('div'); div.className = 'summary-stat';
+    var lbl = document.createElement('div'); lbl.className = 'ss-label'; lbl.textContent = s.label;
+    var val = document.createElement('div'); val.className = 'ss-value'; val.textContent = s.value;
+    div.appendChild(lbl); div.appendChild(val);
+    statsGrid.appendChild(div);
+  });
+  box.appendChild(statsGrid);
+
+  var rec = document.createElement('div'); rec.className = 'summary-recommendation';
+  var assessment = '';
+  if (patientsPerMonth <= 0) {
+    assessment = 'NO CAPACITY: Organic patients already fill the ' + state.capacityCap + '/month cap. Consider expanding clinic hours before launching a campaign.';
+  } else if (viable) {
+    assessment = 'VIABLE: Each new over-65 male patient generates an estimated ' + fmt(ltv) + ' in 10-year net profit. With an effective CAC of ' + fmt(effectiveCAC) + ' against a target of ' + fmt(targetCAC) + ', the campaign meets the ' + state.roi.toFixed(1) + 'x ROI threshold.';
+  } else {
+    assessment = 'CHALLENGING: The effective CAC of ' + fmt(effectiveCAC) + ' exceeds the ' + state.roi.toFixed(1) + 'x target CAC of ' + fmt(targetCAC) + '. Consider lowering CPL, increasing conversion rates, or accepting a lower ROI target.';
+  }
+  var recLine = 'Target over-65 males in the Canberra region. At ' + fmt(state.spend) + '/month with a ' + fmt(state.cpl) + ' CPL, expect ~' + patientsPerMonth.toFixed(0) + ' new patients/month (' + annualPatients.toFixed(0) + '/year), projecting ' + fmt(annualLTV) + ' in 10-year net profit value against ' + fmt(annualSpend) + ' annual spend.';
+
+  var p1 = document.createElement('p');
+  var strong1 = document.createElement('strong'); strong1.textContent = 'Assessment: ';
+  p1.appendChild(strong1); p1.appendChild(document.createTextNode(assessment));
+  rec.appendChild(p1);
+
+  var p2 = document.createElement('p'); p2.style.marginTop = '12px';
+  var strong2 = document.createElement('strong'); strong2.textContent = 'Recommendation: ';
+  p2.appendChild(strong2); p2.appendChild(document.createTextNode(recLine));
+  rec.appendChild(p2);
+
+  box.appendChild(rec);
+}
+
+// === MASTER RECALCULATE ===
+function recalculate() {
+  renderSegmentTable();
+  renderRetentionChart();
+  renderRiskTiers();
+  renderBreakeven();
+  renderCampaignPL();
+  renderSummary();
+}
+
+// === INIT ===
+window.addEventListener('DOMContentLoaded', function() {
+  renderValidation();
+  onSlider();
+});
+</script>
+</body>
+</html>
