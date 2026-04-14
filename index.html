@@ -440,7 +440,38 @@
     <div class="caveat" style="margin-top: 12px;">High-risk = any patient with MBS items 31363-31381 (suspected melanoma or malignant skin lesion excision). These patients represent recurring revenue from ongoing monitoring and treatment.</div>
   </div>
 
-  <!-- SECTION 5: Break-even & Target CAC -->
+  <!-- SECTION 5: Target Audience Builder -->
+  <div class="section">
+    <div class="section-title">Target Audience Builder</div>
+    <div class="card-wide">
+      <div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start;">
+        <div>
+          <div style="font-size: 12px; font-weight: 600; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Sex</div>
+          <label style="display: block; padding: 4px 0; font-size: 14px; cursor: pointer;"><input type="radio" name="aud-sex" value="both" checked onchange="onAudienceChange()"> Both</label>
+          <label style="display: block; padding: 4px 0; font-size: 14px; cursor: pointer;"><input type="radio" name="aud-sex" value="Male" onchange="onAudienceChange()"> Male</label>
+          <label style="display: block; padding: 4px 0; font-size: 14px; cursor: pointer;"><input type="radio" name="aud-sex" value="Female" onchange="onAudienceChange()"> Female</label>
+        </div>
+        <div style="flex: 1; min-width: 300px;">
+          <div style="font-size: 12px; font-weight: 600; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Age Bands (tick to include)</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px;" id="age-band-checks"></div>
+          <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+            <button onclick="setAgeBands(['30-39','40-49'])" style="font-size:11px;padding:3px 10px;border:1px solid var(--border);border-radius:12px;background:white;cursor:pointer;">30-50</button>
+            <button onclick="setAgeBands(['30-39','40-49','50-59'])" style="font-size:11px;padding:3px 10px;border:1px solid var(--border);border-radius:12px;background:white;cursor:pointer;">30-60</button>
+            <button onclick="setAgeBands(['50-59','60-69'])" style="font-size:11px;padding:3px 10px;border:1px solid var(--border);border-radius:12px;background:white;cursor:pointer;">50-70</button>
+            <button onclick="setAgeBands(['50-59','60-69','70-79'])" style="font-size:11px;padding:3px 10px;border:1px solid var(--border);border-radius:12px;background:white;cursor:pointer;">50-80</button>
+            <button onclick="setAgeBands(['60-69','70-79','80+'])" style="font-size:11px;padding:3px 10px;border:1px solid var(--border);border-radius:12px;background:white;cursor:pointer;">60+</button>
+            <button onclick="setAgeBands(['<30','30-39','40-49','50-59','60-69','70-79','80+'])" style="font-size:11px;padding:3px 10px;border:1px solid var(--border);border-radius:12px;background:white;cursor:pointer;">All ages</button>
+          </div>
+        </div>
+        <div style="min-width: 220px;">
+          <div style="font-size: 12px; font-weight: 600; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Selected Audience</div>
+          <div id="audience-summary" style="font-size: 14px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 6: Break-even & Target CAC -->
   <div class="section">
     <div class="section-title">Break-even &amp; Target CAC</div>
     <div class="card-wide">
@@ -855,7 +886,8 @@ function renderCampaignPL() {
   }
   bannerDiv.appendChild(banner);
 
-  var y1Rev = adjustY1(DATA.audiences.over65_male);
+  var selAud = getSelectedAudience();
+  var y1Rev = selAud ? adjustY1(selAud) : 0;
   var ltv10 = calc10YrLTV(y1Rev);
 
   var months = [];
@@ -958,7 +990,9 @@ function renderCampaignPL() {
 
 // === RENDER: SUMMARY ===
 function renderSummary() {
-  var y1 = adjustY1(DATA.audiences.over65_male);
+  var selAud2 = getSelectedAudience();
+  var y1 = selAud2 ? adjustY1(selAud2) : 0;
+  var audLabel = selAud2 ? selAud2.label : 'No audience selected';
   var ltv = calc10YrLTV(y1);
   var targetCAC = ltv / state.roi;
   var leadsPerMonth = state.spend / state.cpl;
@@ -978,7 +1012,7 @@ function renderSummary() {
 
   var statsGrid = document.createElement('div'); statsGrid.className = 'summary-stats';
   var statItems = [
-    { label: '10-yr LTV (Over-65 Males)', value: fmt(ltv) },
+    { label: '10-yr LTV (' + audLabel + ')', value: fmt(ltv) },
     { label: 'Target CAC (' + state.roi.toFixed(1) + 'x ROI)', value: fmt(targetCAC) },
     { label: 'Effective CAC', value: patientsPerMonth > 0 ? fmt(effectiveCAC) : 'N/A' },
     { label: 'Projected 12-mo ROI (10-yr LTV)', value: projectedROI.toFixed(1) + 'x' }
@@ -1001,7 +1035,7 @@ function renderSummary() {
   } else {
     assessment = 'CHALLENGING: The effective CAC of ' + fmt(effectiveCAC) + ' exceeds the ' + state.roi.toFixed(1) + 'x target CAC of ' + fmt(targetCAC) + '. Consider lowering CPL, increasing conversion rates, or accepting a lower ROI target.';
   }
-  var recLine = 'Target over-65 males in the Canberra region. At ' + fmt(state.spend) + '/month with a ' + fmt(state.cpl) + ' CPL, expect ~' + patientsPerMonth.toFixed(0) + ' new patients/month (' + annualPatients.toFixed(0) + '/year), projecting ' + fmt(annualLTV) + ' in 10-year net profit value against ' + fmt(annualSpend) + ' annual spend.';
+  var recLine = 'Target audience: ' + audLabel + ' in Canberra region. At ' + fmt(state.spend) + '/month with a ' + fmt(state.cpl) + ' CPL, expect ~' + patientsPerMonth.toFixed(0) + ' new patients/month (' + annualPatients.toFixed(0) + '/year), projecting ' + fmt(annualLTV) + ' in 10-year net profit value against ' + fmt(annualSpend) + ' annual spend.';
 
   var p1 = document.createElement('p');
   var strong1 = document.createElement('strong'); strong1.textContent = 'Assessment: ';
@@ -1016,11 +1050,132 @@ function renderSummary() {
   box.appendChild(rec);
 }
 
+// === TARGET AUDIENCE ===
+var AGE_BANDS = ['<30', '30-39', '40-49', '50-59', '60-69', '70-79', '80+'];
+var selectedAgeBands = ['50-59', '60-69', '70-79', '80+'];
+var selectedSex = 'both';
+
+function initAudienceBuilder() {
+  var container = document.getElementById('age-band-checks');
+  container.textContent = '';
+  AGE_BANDS.forEach(function(ab) {
+    var label = document.createElement('label');
+    label.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;cursor:pointer;user-select:none;transition:all 0.15s;';
+    var cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = ab;
+    cb.checked = selectedAgeBands.indexOf(ab) >= 0;
+    cb.onchange = onAudienceChange;
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(' ' + ab));
+    container.appendChild(label);
+  });
+  updateAudienceHighlights();
+}
+
+function setAgeBands(bands) {
+  selectedAgeBands = bands;
+  var checks = document.querySelectorAll('#age-band-checks input[type=checkbox]');
+  for (var i = 0; i < checks.length; i++) {
+    checks[i].checked = bands.indexOf(checks[i].value) >= 0;
+  }
+  updateAudienceHighlights();
+  recalculate();
+}
+
+function onAudienceChange() {
+  selectedAgeBands = [];
+  var checks = document.querySelectorAll('#age-band-checks input[type=checkbox]');
+  for (var i = 0; i < checks.length; i++) {
+    if (checks[i].checked) selectedAgeBands.push(checks[i].value);
+  }
+  var radios = document.querySelectorAll('input[name=aud-sex]');
+  for (var i = 0; i < radios.length; i++) {
+    if (radios[i].checked) selectedSex = radios[i].value;
+  }
+  updateAudienceHighlights();
+  recalculate();
+}
+
+function updateAudienceHighlights() {
+  var checks = document.querySelectorAll('#age-band-checks label');
+  for (var i = 0; i < checks.length; i++) {
+    var cb = checks[i].querySelector('input');
+    if (cb.checked) {
+      checks[i].style.background = 'var(--teal)';
+      checks[i].style.color = 'white';
+      checks[i].style.borderColor = 'var(--teal)';
+    } else {
+      checks[i].style.background = 'white';
+      checks[i].style.color = 'var(--text)';
+      checks[i].style.borderColor = 'var(--border)';
+    }
+  }
+}
+
+function getSelectedAudience() {
+  var segs = DATA.segments_fy24_cohort.filter(function(s) {
+    if (s.n === 0) return false;
+    if (selectedAgeBands.indexOf(s.age_band) < 0) return false;
+    if (selectedSex !== 'both' && s.sex !== selectedSex) return false;
+    return true;
+  });
+  if (segs.length === 0) return null;
+  // Weighted average by N
+  var totalN = 0;
+  var totalY1_23 = 0, totalY1_36 = 0, totalY1_other = 0;
+  segs.forEach(function(s) {
+    totalN += s.n;
+    totalY1_23 += s.mean_y1_item23 * s.n;
+    totalY1_36 += s.mean_y1_item36 * s.n;
+    totalY1_other += s.mean_y1_other * s.n;
+  });
+  return {
+    n: totalN,
+    mean_y1_item23: totalY1_23 / totalN,
+    mean_y1_item36: totalY1_36 / totalN,
+    mean_y1_other: totalY1_other / totalN,
+    mean_y1: (totalY1_23 + totalY1_36 + totalY1_other) / totalN,
+    label: (selectedSex === 'both' ? 'All' : selectedSex) + ', ' + selectedAgeBands.join(', ')
+  };
+}
+
+function renderAudienceSummary() {
+  var aud = getSelectedAudience();
+  var el = document.getElementById('audience-summary');
+  el.textContent = '';
+  if (!aud) {
+    var msg = document.createElement('div');
+    msg.style.color = 'var(--red)';
+    msg.textContent = 'No segments selected';
+    el.appendChild(msg);
+    return;
+  }
+  var adjY1 = adjustY1(aud);
+  var ltv = calc10YrLTV(adjY1);
+  var targetCAC = ltv / state.roi;
+  var stats = [
+    ['Patients (cohort)', aud.n.toLocaleString()],
+    ['Adj. Y1 Revenue', fmt(adjY1)],
+    ['10-yr Net LTV', fmt(ltv)],
+    ['Target CAC (' + state.roi.toFixed(1) + 'x)', fmt(targetCAC)],
+  ];
+  stats.forEach(function(pair) {
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border);';
+    var lbl = document.createElement('span'); lbl.textContent = pair[0];
+    var val = document.createElement('span'); val.style.fontWeight = '700'; val.style.color = 'var(--navy)'; val.textContent = pair[1];
+    row.appendChild(lbl); row.appendChild(val);
+    el.appendChild(row);
+  });
+}
+
 // === MASTER RECALCULATE ===
 function recalculate() {
   renderSegmentTable();
   renderRetentionChart();
   renderRiskTiers();
+  renderAudienceSummary();
   renderBreakeven();
   renderCampaignPL();
   renderSummary();
@@ -1029,6 +1184,7 @@ function recalculate() {
 // === INIT ===
 window.addEventListener('DOMContentLoaded', function() {
   renderValidation();
+  initAudienceBuilder();
   onSlider();
 });
 </script>
