@@ -366,6 +366,11 @@
       <div class="range-labels"><span>$2,000</span><span>$10,000</span></div>
     </div>
     <div class="slider-group">
+      <label>Available Slots/Month <span class="val" id="slots-val">60</span></label>
+      <input type="range" id="slots" min="0" max="260" value="60" step="10" oninput="onSlider()">
+      <div class="range-labels"><span>0</span><span>260</span></div>
+    </div>
+    <div class="slider-group">
       <label>Retention Curve Model</label>
       <div class="retention-toggle">
         <button class="active" data-model="powerlaw" onclick="setRetention(this)">Power Law</button>
@@ -448,10 +453,12 @@
   <div class="section">
     <div class="section-title">12-Month Campaign P&amp;L</div>
     <div id="capacity-banner"></div>
-    <div class="organic-input">
-      <span>Organic new patients/month:</span>
-      <input type="number" id="organic-rate" value="40" min="0" max="60" onchange="onSlider()">
-      <span style="font-size: 12px; color: var(--text-light);">of 60 capacity cap | Headroom: <strong id="headroom-val"></strong> patients/month for campaign</span>
+    <div class="card-wide" style="margin-bottom: 16px; background: #f8fafc;">
+      <div style="font-size: 13px; color: var(--text-light);">
+        <strong style="color: var(--navy);">Capacity context:</strong> ~260 unbooked appointment slots/month (390 slots, mid-Apr to end-May 2026).
+        Use the <em>Available Slots/Month</em> slider above to set how many can go to campaign new patients.
+        <span id="headroom-val" style="margin-left: 8px;"></span>
+      </div>
     </div>
     <div class="milestone-cards" id="milestones"></div>
     <div class="card-wide">
@@ -489,7 +496,7 @@ const DATA = {"metadata":{"n_patients":5872,"n_line_items":17034,"total_fees":27
 // === STATE ===
 const state = {
   margin: 0.16, roi: 3, cpl: 40, l2b: 0.40, b2a: 0.85, spend: 3500,
-  retentionModel: 'powerlaw', organicRate: 40, capacityCap: 60
+  retentionModel: 'powerlaw', availableSlots: 60
 };
 
 let segmentChart, retentionChart, plChart;
@@ -522,7 +529,7 @@ function onSlider() {
   state.l2b = parseInt(document.getElementById('l2b').value) / 100;
   state.b2a = parseInt(document.getElementById('b2a').value) / 100;
   state.spend = parseInt(document.getElementById('spend').value);
-  state.organicRate = parseInt(document.getElementById('organic-rate').value) || 0;
+  state.availableSlots = parseInt(document.getElementById('slots').value) || 0;
 
   document.getElementById('margin-val').textContent = Math.round(state.margin * 100) + '%';
   document.getElementById('roi-val').textContent = state.roi.toFixed(1) + 'x';
@@ -530,6 +537,7 @@ function onSlider() {
   document.getElementById('l2b-val').textContent = Math.round(state.l2b * 100) + '%';
   document.getElementById('b2a-val').textContent = Math.round(state.b2a * 100) + '%';
   document.getElementById('spend-val').textContent = fmt(state.spend);
+  document.getElementById('slots-val').textContent = state.availableSlots;
 
   recalculate();
 }
@@ -786,29 +794,36 @@ function renderBreakeven() {
 function renderCampaignPL() {
   var leadsPerMonth = state.spend / state.cpl;
   var patientsPerMonth = leadsPerMonth * state.l2b * state.b2a;
-  var headroom = state.capacityCap - state.organicRate;
-  var cappedPatients = Math.min(patientsPerMonth, Math.max(0, headroom));
-  var isCapped = patientsPerMonth > headroom;
+  var cappedPatients = Math.min(patientsPerMonth, Math.max(0, state.availableSlots));
+  var isCapped = patientsPerMonth > state.availableSlots;
 
   var hrEl = document.getElementById('headroom-val');
-  hrEl.textContent = headroom > 0 ? headroom + ' patients/month' : 'NONE - at capacity';
-  hrEl.style.color = headroom > 0 ? 'var(--green)' : 'var(--red)';
+  if (state.availableSlots <= 0) {
+    hrEl.textContent = 'No slots allocated';
+    hrEl.style.color = 'var(--red)';
+  } else if (isCapped) {
+    hrEl.textContent = 'Funnel generates ' + patientsPerMonth.toFixed(0) + ', capped to ' + state.availableSlots;
+    hrEl.style.color = 'var(--amber)';
+  } else {
+    hrEl.textContent = patientsPerMonth.toFixed(1) + ' patients/month (within ' + state.availableSlots + ' slot limit)';
+    hrEl.style.color = 'var(--green)';
+  }
 
   var bannerDiv = document.getElementById('capacity-banner');
   bannerDiv.textContent = '';
   var banner = document.createElement('div');
-  if (isCapped && headroom > 0) {
+  if (state.availableSlots <= 0) {
     banner.className = 'warning-banner';
-    banner.textContent = 'Campaign would generate ' + patientsPerMonth.toFixed(1) +
-      ' patients/month but only ' + headroom + ' slots available. Capped to ' + cappedPatients.toFixed(0) + ' patients/month.';
-  } else if (headroom <= 0) {
+    banner.textContent = 'No appointment slots allocated for campaign patients. Increase the available slots above.';
+  } else if (isCapped) {
     banner.className = 'warning-banner';
-    banner.textContent = 'No capacity headroom. Organic patients (' + state.organicRate +
-      '/month) already fill the ' + state.capacityCap + '/month cap. Campaign cannot add patients.';
+    banner.textContent = 'Campaign funnel would generate ' + patientsPerMonth.toFixed(1) +
+      ' patients/month but only ' + state.availableSlots + ' slots allocated. Capped to ' + cappedPatients.toFixed(0) +
+      '/month. Consider increasing slots (you have ~260 total unbooked/month) or reducing ad spend.';
   } else {
     banner.className = 'ok-banner';
-    banner.textContent = 'Capacity OK: ' + cappedPatients.toFixed(1) + ' campaign patients/month + ' +
-      state.organicRate + ' organic = ' + (cappedPatients + state.organicRate).toFixed(0) + ' of ' + state.capacityCap + ' cap.';
+    banner.textContent = 'Capacity OK: Campaign generates ' + cappedPatients.toFixed(1) +
+      ' patients/month, well within ' + state.availableSlots + ' available slots.';
   }
   bannerDiv.appendChild(banner);
 
@@ -919,7 +934,7 @@ function renderSummary() {
   var ltv = calc10YrLTV(y1);
   var targetCAC = ltv / state.roi;
   var leadsPerMonth = state.spend / state.cpl;
-  var patientsPerMonth = Math.min(leadsPerMonth * state.l2b * state.b2a, Math.max(0, state.capacityCap - state.organicRate));
+  var patientsPerMonth = Math.min(leadsPerMonth * state.l2b * state.b2a, Math.max(0, state.availableSlots));
   var annualPatients = patientsPerMonth * 12;
   var annualSpend = state.spend * 12;
   var annualLTV = annualPatients * ltv;
@@ -952,7 +967,7 @@ function renderSummary() {
   var rec = document.createElement('div'); rec.className = 'summary-recommendation';
   var assessment = '';
   if (patientsPerMonth <= 0) {
-    assessment = 'NO CAPACITY: Organic patients already fill the ' + state.capacityCap + '/month cap. Consider expanding clinic hours before launching a campaign.';
+    assessment = 'NO SLOTS ALLOCATED: Set available new-patient slots above to model the campaign.';
   } else if (viable) {
     assessment = 'VIABLE: Each new over-65 male patient generates an estimated ' + fmt(ltv) + ' in 10-year net profit. With an effective CAC of ' + fmt(effectiveCAC) + ' against a target of ' + fmt(targetCAC) + ', the campaign meets the ' + state.roi.toFixed(1) + 'x ROI threshold.';
   } else {
